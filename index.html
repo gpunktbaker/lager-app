@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lager Logistik App</title>
+    
+    <link rel="manifest" href="manifest.json">
+    
+    <meta name="theme-color" content="#007bff">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Logistik App">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pocketbase/0.21.1/pocketbase.umd.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: #f4f6f9; color: #333; padding-bottom: 40px; }
+        
+        /* Modul-Umschalter oben */
+        .module-switcher { display: flex; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 100; }
+        .module-btn { flex: 1; text-align: center; padding: 15px 5px; font-weight: bold; font-size: 14px; border: none; background: #f8f9fa; color: #6c757d; cursor: pointer; border-bottom: 3px solid transparent; }
+        .module-btn.active { color: #007bff; border-bottom-color: #007bff; background: #fff; }
+        .module-btn.active.purple-theme { color: #6f42c1; border-bottom-color: #6f42c1; }
+        
+        .view-module { display: none; padding: 15px; }
+        .view-module.active { display: block; }
+
+        /* Sprachauswahl für den Fahrer */
+        .lang-selector { display: flex; gap: 6px; overflow-x: auto; padding: 5px 0 12px 0; -webkit-overflow-scrolling: touch; }
+        .lang-btn { background: #fff; border: 1px solid #ced4da; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; cursor: pointer; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+        .lang-btn.active { background: #007bff; color: white; border-color: #007bff; }
+
+        .card { background: white; padding: 16px; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.04); margin-bottom: 15px; }
+        h2 { font-size: 16px; margin-bottom: 12px; color: #495057; border-left: 4px solid #007bff; padding-left: 8px; }
+        .purple-title h2 { border-left-color: #6f42c1; }
+        
+        .form-group { margin-bottom: 14px; display: flex; flex-direction: column; gap: 4px; }
+        label { font-size: 13px; font-weight: bold; color: #495057; }
+        input, select, textarea { padding: 11px; border: 1px solid #ced4da; border-radius: 6px; font-size: 15px; width: 100%; background: #fff; -webkit-appearance: none; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 3px rgba(0,123,255,0.1); }
+        
+        /* Foto-Uploader */
+        .photo-uploader { border: 2px dashed #ced4da; padding: 20px; text-align: center; border-radius: 6px; background: #f8f9fa; cursor: pointer; margin-top: 5px; }
+        .photo-uploader p { font-size: 13px; color: #6c757d; margin-top: 5px; }
+        .preview-container { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+        .multi-preview-item { position: relative; width: 75px; height: 75px; }
+        .multi-preview-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
+        .btn-remove-photo { position: absolute; top: -5px; right: -5px; background: #dc3545; color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; font-weight: bold; cursor: pointer; }
+
+        .single-photo-box { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+        .single-photo-box .btn { margin: 0; width: auto; flex: 1; }
+        .single-photo-status { font-size: 12px; font-weight: bold; color: #28a745; display: none; }
+
+        /* Unterschriften-Felder */
+        .signature-container { background: #f8f9fa; border: 1px solid #ced4da; border-radius: 6px; position: relative; margin-top: 5px; touch-action: none; }
+        canvas { width: 100%; height: 130px; display: block; background: transparent; }
+        .btn-clear { background: #6c757d; color: white; border: none; padding: 5px 10px; font-size: 11px; border-radius: 4px; position: absolute; bottom: 5px; right: 5px; cursor: pointer; font-weight: bold; }
+
+        /* Buttons allgemein */
+        .btn { background: #007bff; color: white; border: none; padding: 13px; border-radius: 6px; font-size: 15px; font-weight: bold; width: 100%; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 5px; display: block; text-align: center; text-decoration: none; }
+        .btn:active { background: #0056b3; }
+        .btn-sec { background: #e9ecef; color: #495057; border: 1px solid #ced4da; box-shadow: none; }
+        .btn-sec:active { background: #dee2e6; }
+        .btn-purple { background: #6f42c1; }
+        .btn-purple:active { background: #5a32a3; }
+        .btn-back { background: #6c757d; margin-bottom: 15px; }
+
+        /* Abweichungs-Bereich (gelb blinkend/hervorgehoben) */
+        .deviation-box { background: #fff3cd; border: 1px solid #ffeeba; padding: 12px; border-radius: 6px; margin-top: 10px; display: none; }
+        .deviation-box label { color: #856404; }
+        .deviation-box select { border-color: #ffeeba; }
+
+        /* Lade-Overlay */
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .summary-box { background: #f8f9fa; border-left: 4px solid #007bff; padding: 10px; border-radius: 4px; font-size: 13px; color: #666; margin-bottom: 10px; line-height: 1.4; }
+        .v-step { display: none; }
+        .v-step.active { display: block; }
+        .handover-summary { display: grid; gap: 8px; margin-bottom: 12px; }
+        .handover-row { display: grid; grid-template-columns: 120px 1fr; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid #e9ecef; font-size: 13px; }
+        .handover-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .handover-label { color: #6c757d; font-weight: bold; }
+        .handover-value { color: #212529; word-break: break-word; }
+        .reason-options { display: grid; gap: 8px; }
+        .reason-option { display: flex; align-items: center; gap: 9px; padding: 10px; border: 1px solid #ffeeba; border-radius: 6px; background: #fffdf5; font-size: 14px; font-weight: 600; color: #495057; cursor: pointer; }
+        .reason-option input { width: 18px; height: 18px; padding: 0; margin: 0; accent-color: #007bff; flex: 0 0 auto; appearance: auto; -webkit-appearance: auto; }
+
+        /* Lightbox */
+        .lightbox { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); align-items: center; justify-content: center; }
+        .lightbox img { max-width: 95%; max-height: 95%; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div id="loading" class="loading-overlay">
+        <div class="spinner"></div>
+        <p id="loading_text" style="font-weight: bold; color: #555;">Daten werden übertragen...</p>
+    </div>
+
+    <div class="module-switcher" id="main_module_switcher">
+        <button id="btn_mod_v" class="module-btn active" onclick="showModule('v')">🚚 Verladung</button>
+        <button id="btn_mod_r" class="module-btn" onclick="showModule('r')">📦 Retoure</button>
+    </div>
+
+    <div class="container">
+        
+        <div id="module_verladung" class="view-module active">
+            <form id="verladungForm">
+                <div id="v_step_lager" class="v-step active">
+                
+                <div class="card">
+                    <h2>Interne Dokumentation (Verlader)</h2>
+                    <div class="form-group">
+                        <label>Name des Verladers *</label>
+                        <input type="text" id="v_verlader_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Auftragsnummer(n) *</label>
+                        <input type="text" id="v_auftrag" required>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Paletten-Mengenabgleich</h2>
+                    <div class="form-group">
+                        <label>Anzahl verladene Paletten *</label>
+                        <input type="number" id="v_anzahl_pal" pattern="[0-9]*" inputmode="numeric" oninput="checkPalettenAbweichung()" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Anzahl getauschte Paletten *</label>
+                        <input type="number" id="v_retoure_pal" pattern="[0-9]*" inputmode="numeric" oninput="checkPalettenAbweichung()" required>
+                    </div>
+
+                    <div id="v_abweichung_block" class="deviation-box">
+                        <div class="form-group">
+                            <label>⚠️ Grund für Palettenabweichung *</label>
+                            <div id="v_grund_abweichung" class="reason-options">
+                                <label class="reason-option">
+                                    <input type="radio" name="v_grund_abweichung" value="no_swap_pallets" onchange="checkPalettenAbweichung()">
+                                    Keine Tauschpaletten vorhanden
+                                </label>
+                                <label class="reason-option">
+                                    <input type="radio" name="v_grund_abweichung" value="poor_quality" onchange="checkPalettenAbweichung()">
+                                    Tauschpaletten haben keine ausreichende Qualität
+                                </label>
+                                <label class="reason-option">
+                                    <input type="radio" name="v_grund_abweichung" value="driver_refuses" onchange="checkPalettenAbweichung()">
+                                    Fahrer möchte nicht tauschen
+                                </label>
+                                <label class="reason-option">
+                                    <input type="radio" name="v_grund_abweichung" value="other" onchange="checkPalettenAbweichung()">
+                                    Sonstiges
+                                </label>
+                            </div>
+                        </div>
+                        <div id="v_freitext_abweichung_block" class="form-group" style="margin-top: 8px; display: none;">
+                            <label>Grund manuell erfassen *</label>
+                            <textarea id="v_freitext_abweichung" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Fotodokumentation (Ladungssicherung)</h2>
+                    <div class="form-group">
+                        <label>Beladungsfotos aufnehmen (Mindestens 1 Foto) *</label>
+                        <div class="photo-uploader" onclick="document.getElementById('v_file_fotos').click()">
+                            <span style="font-size: 28px;">📸</span>
+                            <p>Kamera öffnen / Fotos hinzufügen</p>
+                            <input type="file" id="v_file_fotos" accept="image/*" capture="environment" multiple style="display:none;" onchange="handleVerladungFotos(this)">
+                        </div>
+                        <div id="v_preview_container" class="preview-container"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Abschluss Lagermitarbeiter</h2>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label id="lbl_sig_verlader">Unterschrift Verlader (Werkverkehr / Personal) *</label>
+                        <div class="signature-container">
+                            <canvas id="sig_canvas_verlader"></canvas>
+                            <button type="button" class="btn-clear" onclick="clearCanvas('sig_canvas_verlader')">Löschen</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="btn" onclick="weiterZurFahrerBestaetigung()">Weiter zur Fahrer-Bestätigung</button>
+                </div>
+
+                <div id="v_step_fahrer" class="v-step">
+                <div class="lang-selector">
+                    <button type="button" class="lang-btn active" onclick="changeDriverLang('de', this)">🇩🇪 DE</button>
+                    <button type="button" class="lang-btn" onclick="changeDriverLang('en', this)">🇬🇧 EN</button>
+                    <button type="button" class="lang-btn" onclick="changeDriverLang('pl', this)">🇵🇱 PL</button>
+                    <button type="button" class="lang-btn" onclick="changeDriverLang('ro', this)">🇷🇴 RO</button>
+                    <button type="button" class="lang-btn" onclick="changeDriverLang('ru', this)">🇷🇺 RU</button>
+                    <button type="button" class="lang-btn" onclick="changeDriverLang('es', this)">🇪🇸 ES</button>
+                    <button type="button" class="lang-btn" onclick="changeDriverLang('tr', this)">🇹🇷 TR</button>
+                </div>
+
+                <div class="card">
+                    <h2 id="lbl_handover_title">Angaben des Lagermitarbeiters</h2>
+                    <div id="v_handover_summary" class="handover-summary"></div>
+                    <button type="button" id="btn_edit_lager" class="btn btn-sec" onclick="zurueckZumLagerSchritt()">Angaben korrigieren</button>
+                </div>
+
+                <div class="card">
+                    <h2 id="lbl_card_driver" style="border-left-color: #007bff;">Fahrer-Bestätigung & Übergabe</h2>
+                    
+                    <div class="form-group">
+                        <label id="lbl_spedition">Name der Spedition *</label>
+                        <input type="text" id="v_spedition" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label id="lbl_kennzeichen">Kennzeichen LKW / Auflieger *</label>
+                        <input type="text" id="v_kennzeichen" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label id="lbl_driver_name">Name des Fahrers *</label>
+                        <input type="text" id="v_fahrer_name" required>
+                    </div>
+
+                    <div class="summary-box" id="lbl_safety_text">
+                        Ich bestätige als Fahrzeugführer hiermit die ordnungsgemäße Übernahme der oben genannten Palettenanzahl sowie die vorschriftsmäßige Durchführung der Ladungssicherung gemäß § 22 StVO / VDI 2700.
+                    </div>
+
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label id="lbl_sig_fahrer">Unterschrift des LKW-Fahrers *</label>
+                        <div class="signature-container" style="border-color: #007bff;">
+                            <canvas id="sig_canvas_fahrer"></canvas>
+                            <button type="button" class="btn-clear" onclick="clearCanvas('sig_canvas_fahrer')">Löschen</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn">Verladeprotokoll bestätigen & abspeichern</button>
+                </div>
+            </form>
+        </div>
+
+        <div id="module_retoure" class="view-module">
+            <div id="r_subview_liste">
+                <div class="card">
+                    <h2 style="color: #6f42c1; display: flex; justify-content: space-between; align-items: center; border-left-color: #6f42c1;">
+                        <span>📦 Offene Retouren</span>
+                        <button type="button" class="btn btn-sec" style="pointer-events: auto; background: #495057; color: white; margin: 0; width: auto; padding: 6px 12px; font-size: 13px;" onclick="loadOffeneRetouren()">🔄 Aktualisieren</button>
+                    </h2>
+                    <div id="r_liste_container"></div>
+                </div>
+            </div>
+
+            <div id="r_subview_erfassung" style="display: none;">
+                <button type="button" class="btn btn-back" onclick="zurueckZurRetourenListe()">⬅️ Zurück zur Übersicht</button>
+                
+                <div class="card" style="border-left: 4px solid #6f42c1; padding-left: 12px;">
+                    <h2 style="color: #6f42c1; border-left: none; padding-left: 0; margin-bottom: 8px;">📥 Retoureneingang prüfen</h2>
+                    <div id="r_vorgang_meta" class="summary-box" style="border-left-color: #6f42c1; background: #f6f2ff;"></div>
+                    
+                    <form id="retoureDynamischForm">
+                        <div id="r_positionen_container"></div>
+                        
+                        <button type="button" class="btn btn-purple" id="btn_retoure_abschliessen" style="margin-top:15px;" onclick="vorgangAbschliessen()">
+                            ✅ Prüfung abschließen & speichern
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="lightbox" class="lightbox" onclick="this.style.display='none'">
+        <img id="lightbox_img" src="">
+    </div>
+
+    <script>
+        // ==========================================
+        // SERVER-ANBINDUNG & INITIALISIERUNG
+        // ==========================================
+        const SERVER_URL = "http://"https://pocketbase-latest-5lau.onrender.com";
+        const pb = new PocketBase(SERVER_URL);
+
+        // Globale Arrays für Fotos im Speicher
+        let gesammelteVerladungFotos = [];
+        let aktuelleFahrerSprache = 'de';
+
+        // Mehrsprachiges Wörterbuch für LKW-Fahrer
+        const translations = {
+            de: {
+                card_title: "Fahrer-Bestätigung & Übergabe",
+                driver_name: "Name des Fahrers *",
+                safety_text: "Ich bestätige als Fahrzeugführer hiermit die ordnungsgemäße Übernahme der oben genannten Palettenanzahl sowie die vorschriftsmäßige Durchführung der Ladungssicherung gemäß § 22 StVO / VDI 2700.",
+                sig_verlader: "Unterschrift Verlader (Werkverkehr / Personal) *",
+                sig_fahrer: "Unterschrift des LKW-Fahrers *",
+                carrier_name: "Name der Spedition *",
+                truck_plate: "Kennzeichen LKW / Auflieger *",
+                handover_title: "Angaben des Lagermitarbeiters",
+                edit_lager: "Angaben korrigieren",
+                summary_loader: "Verlader",
+                summary_order: "Auftrag",
+                summary_loaded_pallets: "Verladene Paletten",
+                summary_return_pallets: "Getauschte Paletten",
+                summary_deviation: "Abweichung",
+                summary_no_deviation: "Keine Abweichung angegeben",
+                summary_photos: "Fotos",
+                summary_photos_value: "Foto(s) erfasst",
+                reason_no_swap_pallets: "Keine Tauschpaletten vorhanden",
+                reason_poor_quality: "Tauschpaletten haben keine ausreichende Qualität",
+                reason_driver_refuses: "Fahrer möchte nicht tauschen",
+                reason_other: "Sonstiges"
+            },
+            en: {
+                card_title: "Driver Confirmation & Handover",
+                driver_name: "Driver's Name *",
+                safety_text: "As the vehicle operator, I hereby confirm the proper takeover of the number of pallets stated above and that cargo securing has been correctly performed in accordance with § 22 StVO / VDI 2700.",
+                sig_verlader: "Signature of Loader / Warehouse Staff *",
+                sig_fahrer: "Signature of the Truck Driver *",
+                carrier_name: "Carrier name *",
+                truck_plate: "Truck / trailer license plate *",
+                handover_title: "Warehouse staff entries",
+                edit_lager: "Correct entries",
+                summary_loader: "Loader",
+                summary_order: "Order",
+                summary_loaded_pallets: "Loaded pallets",
+                summary_return_pallets: "Exchanged pallets",
+                summary_deviation: "Deviation",
+                summary_no_deviation: "No deviation stated",
+                summary_photos: "Photos",
+                summary_photos_value: "photo(s) captured",
+                reason_no_swap_pallets: "No exchange pallets available",
+                reason_poor_quality: "Exchange pallets are not of sufficient quality",
+                reason_driver_refuses: "Driver does not want to exchange pallets",
+                reason_other: "Other"
+            },
+            pl: {
+                card_title: "Potwierdzenie Kierowcy i Przekazanie",
+                driver_name: "Imię i nazwisko kierowcy *",
+                safety_text: "Jako kierowca pojazdu potwierdzam niniejszym prawidłowe przejęcie wyżej wymienionej liczby palet oraz prawidłowe zabezpieczenie ładunku zgodnie z § 22 StVO / VDI 2700.",
+                sig_verlader: "Podpis osoby ładującej (Magazynier) *",
+                sig_fahrer: "Podpis Kierowcy Ciężarówki *",
+                carrier_name: "Nazwa firmy transportowej *",
+                truck_plate: "Numer rejestracyjny ciężarówki / naczepy *",
+                handover_title: "Dane pracownika magazynu",
+                edit_lager: "Popraw dane",
+                summary_loader: "Pracownik załadunku",
+                summary_order: "Zlecenie",
+                summary_loaded_pallets: "Załadowane palety",
+                summary_return_pallets: "Wymienione palety",
+                summary_deviation: "Odchylenie",
+                summary_no_deviation: "Nie podano odchylenia",
+                summary_photos: "Zdjęcia",
+                summary_photos_value: "zdjęcie/a zapisane",
+                reason_no_swap_pallets: "Brak palet na wymianę",
+                reason_poor_quality: "Palety na wymianę nie mają odpowiedniej jakości",
+                reason_driver_refuses: "Kierowca nie chce wymieniać palet",
+                reason_other: "Inne"
+            },
+            ro: {
+                card_title: "Confirmare Șofer & Predare",
+                driver_name: "Numele șoferului *",
+                safety_text: "În calitate de conducător auto, confirm prin prezenta preluarea corespunzătoare a numărului de paleți menționat mai sus și efectuarea regulamentară a asigurării încărcăturii în conformitate cu § 22 StVO / VDI 2700.",
+                sig_verlader: "Semnătura Încărcătorului (Personal depozit) *",
+                sig_fahrer: "Semnătura Șoferului de Camion *",
+                carrier_name: "Numele companiei de transport *",
+                truck_plate: "Număr de înmatriculare camion / remorcă *",
+                handover_title: "Datele angajatului din depozit",
+                edit_lager: "Corectează datele",
+                summary_loader: "Încărcător",
+                summary_order: "Comandă",
+                summary_loaded_pallets: "Paleți încărcați",
+                summary_return_pallets: "Paleți schimbați",
+                summary_deviation: "Abatere",
+                summary_no_deviation: "Nu a fost indicată nicio abatere",
+                summary_photos: "Fotografii",
+                summary_photos_value: "fotografie/i înregistrate",
+                reason_no_swap_pallets: "Nu sunt disponibili paleți pentru schimb",
+                reason_poor_quality: "Paleții pentru schimb nu au calitate suficientă",
+                reason_driver_refuses: "Șoferul nu dorește schimbul",
+                reason_other: "Altele"
+            },
+            ru: {
+                card_title: "Подтверждение водителя и передача",
+                driver_name: "Имя и фамилия водителя *",
+                safety_text: "Я, как водитель транспортного средства, настоящим подтверждаю надлежащую приемку указанного выше количества паллет и правильное крепление груза в соответствии с § 22 StVO / VDI 2700.",
+                sig_verlader: "Подпись грузчика (Сотрудник склада) *",
+                sig_fahrer: "Подпись водителя грузовика *",
+                carrier_name: "Название транспортной компании *",
+                truck_plate: "Номер грузовика / прицепа *",
+                handover_title: "Данные сотрудника склада",
+                edit_lager: "Исправить данные",
+                summary_loader: "Грузчик",
+                summary_order: "Заказ",
+                summary_loaded_pallets: "Загруженные паллеты",
+                summary_return_pallets: "Обменянные паллеты",
+                summary_deviation: "Отклонение",
+                summary_no_deviation: "Отклонение не указано",
+                summary_photos: "Фотографии",
+                summary_photos_value: "фото сохранено",
+                reason_no_swap_pallets: "Нет паллет для обмена",
+                reason_poor_quality: "Паллеты для обмена недостаточного качества",
+                reason_driver_refuses: "Водитель не хочет обменивать паллеты",
+                reason_other: "Другое"
+            },
+            es: {
+                card_title: "Confirmación del Conductor y Entrega",
+                driver_name: "Nombre del conductor *",
+                safety_text: "Como conductor del vehículo, confirmo por la presente la correcta recepción del número de palets arriba indicado y la correcta sujeción de la carga de acuerdo con el § 22 StVO / VDI 2700.",
+                sig_verlader: "Firma del Cargador (Personal de almacén) *",
+                sig_fahrer: "Firma del Conductor del Camión *",
+                carrier_name: "Nombre de la empresa de transporte *",
+                truck_plate: "Matrícula camión / remolque *",
+                handover_title: "Datos del empleado de almacén",
+                edit_lager: "Corregir datos",
+                summary_loader: "Cargador",
+                summary_order: "Pedido",
+                summary_loaded_pallets: "Palets cargados",
+                summary_return_pallets: "Palets intercambiados",
+                summary_deviation: "Desviación",
+                summary_no_deviation: "No se indicó ninguna desviación",
+                summary_photos: "Fotos",
+                summary_photos_value: "foto(s) registrada(s)",
+                reason_no_swap_pallets: "No hay palets de intercambio disponibles",
+                reason_poor_quality: "Los palets de intercambio no tienen calidad suficiente",
+                reason_driver_refuses: "El conductor no quiere intercambiar palets",
+                reason_other: "Otro"
+            },
+            tr: {
+                card_title: "Sürücü Onayı ve Teslimat",
+                driver_name: "Sürücünün Adı Soyadı *",
+                safety_text: "Araç sürücüsü olarak, yukarıda belirtilen palet sayısını usulüne uygun olarak teslim aldığımı ve yük güvenliğinin § 22 StVO / VDI 2700 standartlarına uygun olarak doğru şekilde yapıldığını onaylıyorum.",
+                sig_verlader: "Yükleyicinin İmzası (Depo Personeli) *",
+                sig_fahrer: "Kamyon Sürücüsünün İmzası *",
+                carrier_name: "Nakliye firması adı *",
+                truck_plate: "Kamyon / dorse plakası *",
+                handover_title: "Depo personeli bilgileri",
+                edit_lager: "Bilgileri düzelt",
+                summary_loader: "Yükleyici",
+                summary_order: "Sipariş",
+                summary_loaded_pallets: "Yüklenen paletler",
+                summary_return_pallets: "Değiştirilen paletler",
+                summary_deviation: "Sapma",
+                summary_no_deviation: "Sapma belirtilmedi",
+                summary_photos: "Fotoğraflar",
+                summary_photos_value: "fotoğraf kaydedildi",
+                reason_no_swap_pallets: "Değişim paleti yok",
+                reason_poor_quality: "Değişim paletleri yeterli kalitede değil",
+                reason_driver_refuses: "Sürücü palet değiştirmek istemiyor",
+                reason_other: "Diğer"
+            }
+        };
+
+        // Modulwechsel (Verladung / Retoure)
+        function showModule(module) {
+            document.getElementById('btn_mod_v').className = 'module-btn' + (module === 'v' ? ' active' : '');
+            document.getElementById('btn_mod_r').className = 'module-btn' + (module === 'r' ? ' active purple-theme' : '');
+            
+            document.getElementById('module_verladung').className = 'view-module' + (module === 'v' ? ' active' : '');
+            document.getElementById('module_retoure').className = 'view-module' + (module === 'r' ? ' active' : '');
+
+            if(module === 'r') {
+                zurueckZurRetourenListe();
+            }
+        }
+
+        // Sprachwechsel-Logik für den Fahrer
+        function changeDriverLang(lang, button) {
+            aktuelleFahrerSprache = lang;
+            const container = button.parentElement;
+            const buttons = container.querySelectorAll('.lang-btn');
+            buttons.forEach(b => b.classList.remove('active'));
+            button.classList.add('active');
+
+            const t = translations[lang] || translations['de'];
+            document.getElementById('lbl_card_driver').innerText = t.card_title;
+            document.getElementById('lbl_driver_name').innerText = t.driver_name;
+            document.getElementById('lbl_safety_text').innerText = t.safety_text;
+            document.getElementById('lbl_sig_fahrer').innerText = t.sig_fahrer;
+            document.getElementById('lbl_spedition').innerText = t.carrier_name;
+            document.getElementById('lbl_kennzeichen').innerText = t.truck_plate;
+            document.getElementById('lbl_handover_title').innerText = t.handover_title;
+            document.getElementById('btn_edit_lager').innerText = t.edit_lager;
+            renderFahrerUebersicht();
+        }
+
+        // Lightbox öffnen
+        function openLightbox(src) {
+            document.getElementById('lightbox_img').src = src;
+            document.getElementById('lightbox').style.display = 'flex';
+        }
+
+        // ==========================================
+        // LOGIK FÜR CANVASES (UNTERSCHRIFTEN)
+        // ==========================================
+        const canvases = {};
+        const ctxs = {};
+        const drawingStates = {};
+
+        function resizeSignatureCanvas(id) {
+            const canvas = canvases[id];
+            const ctx = ctxs[id];
+            if(!canvas || !ctx) return;
+
+            const rect = canvas.parentElement.getBoundingClientRect();
+            if(rect.width <= 0) return;
+
+            canvas.width = rect.width;
+            canvas.height = 130;
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#333';
+        }
+
+        function initCanvas(id) {
+            const canvas = document.getElementById(id);
+            if(!canvas) return;
+            
+            canvases[id] = canvas;
+            ctxs[id] = canvas.getContext('2d');
+            drawingStates[id] = false;
+
+            resizeSignatureCanvas(id);
+            window.addEventListener('resize', () => resizeSignatureCanvas(id));
+
+            // Touch-Events für Mobilgeräte
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                drawingStates[id] = true;
+                const pos = getTouchPos(canvas, e);
+                ctxs[id].beginPath();
+                ctxs[id].moveTo(pos.x, pos.y);
+            }, { passive: false });
+
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (!drawingStates[id]) return;
+                const pos = getTouchPos(canvas, e);
+                ctxs[id].lineTo(pos.x, pos.y);
+                ctxs[id].stroke();
+            }, { passive: false });
+
+            canvas.addEventListener('touchend', () => { drawingStates[id] = false; });
+
+            // Maus-Events für PC-Tests
+            canvas.addEventListener('mousedown', (e) => {
+                drawingStates[id] = true;
+                ctxs[id].beginPath();
+                ctxs[id].moveTo(e.offsetX, e.offsetY);
+            });
+            canvas.addEventListener('mousemove', (e) => {
+                if (!drawingStates[id]) return;
+                ctxs[id].lineTo(e.offsetX, e.offsetY);
+                ctxs[id].stroke();
+            });
+            canvas.addEventListener('mouseup', () => { drawingStates[id] = false; });
+        }
+
+        function getTouchPos(canvas, touchEvent) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: touchEvent.touches[0].clientX - rect.left,
+                y: touchEvent.touches[0].clientY - rect.top
+            };
+        }
+
+        function clearCanvas(id) {
+            if(ctxs[id] && canvases[id]) {
+                ctxs[id].clearRect(0, 0, canvases[id].width, canvases[id].height);
+            }
+        }
+
+        function isCanvasEmpty(id) {
+            const canvas = canvases[id];
+            if(!canvas) return true;
+            const blank = document.createElement('canvas');
+            blank.width = canvas.width;
+            blank.height = canvas.height;
+            return canvas.toDataURL() === blank.toDataURL();
+        }
+
+        function getCanvasBlob(id) {
+            return new Promise((resolve) => {
+                canvases[id].toBlob((blob) => { resolve(blob); }, 'image/jpeg', 0.8);
+            });
+        }
+
+        function initAllCanvases() {
+            initCanvas('sig_canvas_verlader');
+            initCanvas('sig_canvas_fahrer');
+        }
+
+        // ==========================================
+        // MODUL 1: LOGIK VERLADUNG (SPEICHERN)
+        // ==========================================
+        function getSelectedDeviationReasonKey() {
+            const selected = document.querySelector('input[name="v_grund_abweichung"]:checked');
+            return selected ? selected.value : '';
+        }
+
+        function clearDeviationReasonSelection() {
+            document.querySelectorAll('input[name="v_grund_abweichung"]').forEach(input => {
+                input.checked = false;
+            });
+        }
+
+        function getTranslatedDeviationReason(lang = aktuelleFahrerSprache) {
+            const key = getSelectedDeviationReasonKey();
+            if(!key) return '';
+            const t = translations[lang] || translations['de'];
+            return t[`reason_${key}`] || key;
+        }
+
+        function checkPalettenAbweichung() {
+            const verladen = parseInt(document.getElementById('v_anzahl_pal').value, 10);
+            const getauscht = parseInt(document.getElementById('v_retoure_pal').value, 10);
+            const block = document.getElementById('v_abweichung_block');
+            const reasonKey = getSelectedDeviationReasonKey();
+            const freitextBlock = document.getElementById('v_freitext_abweichung_block');
+            const freitext = document.getElementById('v_freitext_abweichung');
+            
+            if(Number.isFinite(verladen) && Number.isFinite(getauscht) && getauscht < verladen) {
+                block.style.display = 'block';
+            } else {
+                block.style.display = 'none';
+                clearDeviationReasonSelection();
+                freitext.value = "";
+            }
+
+            if(reasonKey === 'other' && block.style.display === 'block') {
+                freitextBlock.style.display = 'flex';
+                freitext.required = true;
+            } else {
+                freitextBlock.style.display = 'none';
+                freitext.required = false;
+                if(reasonKey !== 'other') freitext.value = "";
+            }
+        }
+
+        function getFieldValue(id, fallback = '---') {
+            const el = document.getElementById(id);
+            if(!el) return fallback;
+            const value = (el.value || '').trim();
+            return value || fallback;
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[char]));
+        }
+
+        function validateLagerSchritt() {
+            const pflichtfelder = [
+                { id: 'v_verlader_name', label: 'Name des Verladers' },
+                { id: 'v_auftrag', label: 'Auftragsnummer(n)' },
+                { id: 'v_anzahl_pal', label: 'Anzahl verladene Paletten' },
+                { id: 'v_retoure_pal', label: 'Anzahl getauschte Paletten' }
+            ];
+
+            for (const feld of pflichtfelder) {
+                if(!getFieldValue(feld.id, '')) {
+                    alert(`Bitte ausfüllen: ${feld.label}`);
+                    document.getElementById(feld.id).focus();
+                    return false;
+                }
+            }
+
+            if(document.getElementById('v_abweichung_block').style.display === 'block' && !getSelectedDeviationReasonKey()) {
+                alert("Bitte den Grund für die Palettenabweichung auswählen.");
+                document.getElementById('v_grund_abweichung').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return false;
+            }
+
+            if(getSelectedDeviationReasonKey() === 'other' && !getFieldValue('v_freitext_abweichung', '')) {
+                alert("Bitte den Grund für die Palettenabweichung manuell erfassen.");
+                document.getElementById('v_freitext_abweichung').focus();
+                return false;
+            }
+
+            if(gesammelteVerladungFotos.length === 0) {
+                alert("Bitte nehmen Sie mindestens ein Foto der Ladungssicherung auf!");
+                return false;
+            }
+
+            if(isCanvasEmpty('sig_canvas_verlader')) {
+                alert("Bitte unterschreiben Sie als Verlader!");
+                return false;
+            }
+
+            return true;
+        }
+
+        function renderFahrerUebersicht() {
+            const t = translations[aktuelleFahrerSprache] || translations['de'];
+            const abweichungsblockAktiv = document.getElementById('v_abweichung_block').style.display === 'block';
+            const abweichung = abweichungsblockAktiv
+                ? `${getTranslatedDeviationReason()}${getFieldValue('v_freitext_abweichung', '') ? ' - ' + getFieldValue('v_freitext_abweichung', '') : ''}`
+                : t.summary_no_deviation;
+
+            const rows = [
+                [t.summary_loader, getFieldValue('v_verlader_name')],
+                [t.summary_order, getFieldValue('v_auftrag')],
+                [t.summary_loaded_pallets, getFieldValue('v_anzahl_pal')],
+                [t.summary_return_pallets, getFieldValue('v_retoure_pal', '0')],
+                [t.summary_deviation, abweichung]
+            ];
+
+            document.getElementById('v_handover_summary').innerHTML = rows.map(([label, value]) => `
+                <div class="handover-row">
+                    <div class="handover-label">${escapeHtml(label)}</div>
+                    <div class="handover-value">${escapeHtml(value)}</div>
+                </div>
+            `).join('');
+
+            renderFahrerFotoMiniaturen(t);
+        }
+
+        function renderFahrerFotoMiniaturen(t) {
+            const container = document.getElementById('v_handover_summary');
+            const row = document.createElement('div');
+            row.className = 'handover-row';
+            row.innerHTML = `
+                <div class="handover-label">${escapeHtml(t.summary_photos)} (${gesammelteVerladungFotos.length})</div>
+                <div class="handover-value">
+                    <div id="v_driver_photo_preview" class="preview-container"></div>
+                </div>
+            `;
+            container.appendChild(row);
+
+            const preview = document.getElementById('v_driver_photo_preview');
+            gesammelteVerladungFotos.forEach((file) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const div = document.createElement('div');
+                    div.className = 'multi-preview-item';
+                    div.innerHTML = `<img src="${e.target.result}" onclick="openLightbox('${e.target.result}')">`;
+                    preview.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function weiterZurFahrerBestaetigung() {
+            if(!validateLagerSchritt()) return;
+
+            renderFahrerUebersicht();
+            document.getElementById('v_step_lager').classList.remove('active');
+            document.getElementById('v_step_fahrer').classList.add('active');
+            setTimeout(() => resizeSignatureCanvas('sig_canvas_fahrer'), 0);
+            window.scrollTo(0, 0);
+        }
+
+        function zurueckZumLagerSchritt() {
+            document.getElementById('v_step_fahrer').classList.remove('active');
+            document.getElementById('v_step_lager').classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        function handleVerladungFotos(input) {
+            if (input.files) {
+                for(let i=0; i<input.files.length; i++) {
+                    gesammelteVerladungFotos.push(input.files[i]);
+                }
+                renderVerladungFotosPreview();
+                input.value = ""; // Reset
+            }
+        }
+
+        function renderVerladungFotosPreview() {
+            const container = document.getElementById('v_preview_container');
+            container.innerHTML = '';
+            gesammelteVerladungFotos.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const div = document.createElement('div');
+                    div.className = 'multi-preview-item';
+                    div.innerHTML = `
+                        <img src="${e.target.result}" onclick="openLightbox('${e.target.result}')">
+                        <button type="button" class="btn-remove-photo" onclick="removeVerladungFoto(${index})">✕</button>
+                    `;
+                    container.appendChild(div);
+                }
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function removeVerladungFoto(index) {
+            gesammelteVerladungFotos.splice(index, 1);
+            renderVerladungFotosPreview();
+        }
+
+        document.getElementById('verladungForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if(!validateLagerSchritt()) {
+                zurueckZumLagerSchritt();
+                return;
+            }
+
+            if(!getFieldValue('v_fahrer_name', '')) {
+                alert("Bitte den Namen des Fahrers eintragen!");
+                document.getElementById('v_fahrer_name').focus();
+                return;
+            }
+
+            if(!getFieldValue('v_spedition', '')) {
+                alert("Bitte den Namen der Spedition eintragen!");
+                document.getElementById('v_spedition').focus();
+                return;
+            }
+
+            if(!getFieldValue('v_kennzeichen', '')) {
+                alert("Bitte das Kennzeichen LKW / Auflieger eintragen!");
+                document.getElementById('v_kennzeichen').focus();
+                return;
+            }
+
+            // Validierung: Unterschriften
+            if(isCanvasEmpty('sig_canvas_fahrer')) { alert("Bitte lassen Sie den Fahrer unterschreiben!"); return; }
+
+            const loader = document.getElementById('loading');
+            loader.style.display = 'flex';
+            document.getElementById('loading_text').innerText = "Verladeprotokoll wird übertragen...";
+
+            try {
+                const formData = new FormData();
+                formData.append('Verlader_Name', document.getElementById('v_verlader_name').value);
+                formData.append('Auftragsnummer', document.getElementById('v_auftrag').value);
+                formData.append('Spedition', document.getElementById('v_spedition').value);
+                formData.append('Kennzeichen', document.getElementById('v_kennzeichen').value);
+                formData.append('Anzahl_Paletten', parseInt(document.getElementById('v_anzahl_pal').value));
+                formData.append('Anzahl_Paletten_Retoure', parseInt(document.getElementById('v_retoure_pal').value));
+                formData.append('Fahrer_Name', document.getElementById('v_fahrer_name').value);
+
+                // Abweichungsdaten falls aktiv
+                if(document.getElementById('v_abweichung_block').style.display === 'block') {
+                    const grund = getTranslatedDeviationReason('de');
+                    const text = document.getElementById('v_freitext_abweichung').value;
+                    formData.append('Abweichungsgrund', grund + (text ? " - " + text : ""));
+                }
+
+                // Bilder anhängen
+                gesammelteVerladungFotos.forEach(file => {
+                    formData.append('Fotos', file);
+                });
+
+                // Signaturen in Blobs wandeln und anhängen
+                const bVerlader = await getCanvasBlob('sig_canvas_verlader');
+                const bFahrer = await getCanvasBlob('sig_canvas_fahrer');
+                formData.append('Unterschrift_Verlader', bVerlader, 'unterschrift_verlader.jpg');
+                formData.append('Unterschrift_Fahrer', bFahrer, 'unterschrift_fahrer.jpg');
+
+                // In PocketBase speichern
+                await pb.collection('Verladungen').create(formData);
+                
+                alert("Verladeprotokoll erfolgreich übermittelt und archiviert!");
+                
+                // Formular-Reset
+                document.getElementById('verladungForm').reset();
+                gesammelteVerladungFotos = [];
+                document.getElementById('v_preview_container').innerHTML = '';
+                clearCanvas('sig_canvas_verlader');
+                clearCanvas('sig_canvas_fahrer');
+                document.getElementById('v_abweichung_block').style.display = 'none';
+                document.getElementById('v_freitext_abweichung_block').style.display = 'none';
+                document.getElementById('v_freitext_abweichung').required = false;
+                document.getElementById('v_handover_summary').innerHTML = '';
+                zurueckZumLagerSchritt();
+                window.scrollTo(0, 0);
+
+            } catch (err) {
+                console.error(err);
+                alert("Schwerwiegender Übertragungsfehler: " + err.message);
+            } finally {
+                loader.style.display = 'none';
+            }
+        });
+
+
+        // ==========================================
+        // MODUL 2: DYNAMISCHES RETOURENSYSTEM
+        // ==========================================
+        let offeneRetouren = [];
+        let aktiverVorgang = null;
+        let dynPalFotosObjekt = {}; // Temporärer Speicher für Bilddateien pro Positions-ID
+
+        // 1. Offene Retouren aus PocketBase laden
+        async function loadOffeneRetouren() {
+            const container = document.getElementById('r_liste_container');
+            container.innerHTML = '<p style="text-align:center; padding:20px; color:#6c757d; font-style:italic;">Lade offene Vorgänge...</p>';
+            
+            try {
+                offeneRetouren = await pb.collection('Retouren_kopfdaten').getFullList({
+                    filter: 'Status = "offen"',
+                    sort: '-created',
+                    expand: 'retouren_positionen(relation)'
+                });
+                
+                container.innerHTML = '';
+                
+                if (offeneRetouren.length === 0) {
+                    container.innerHTML = '<p style="text-align:center; padding:20px; color:#6c757d; font-style:italic;">Keine offenen Retouren zur Bearbeitung vorhanden.</p>';
+                    return;
+                }
+                
+                offeneRetouren.forEach(vorgang => {
+                    const dateStr = new Date(vorgang.created).toLocaleDateString('de-DE');
+                    const positionen = vorgang.expand['retouren_positionen(relation)'] || [];
+                    
+                    const card = document.createElement('div');
+                    card.style = "background:#fff; padding:15px; border-radius:8px; margin-bottom:12px; border:1px solid #dee2e6; border-left:5px solid #6f42c1; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.02);";
+                    card.onclick = () => waehleRetourenVorgang(vorgang.id);
+                    card.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; font-weight:bold; margin-bottom:5px;">
+                            <div style="flex:1;">Auftrag: ${vorgang.Auftragsnummer || '---'}</div>
+                            <div style="color:#6c757d; font-size:13px;">${dateStr}</div>
+                        </div>
+                        <div style="font-size:13px; color:#666;">
+                            Sachbearbeiter: ${vorgang.Sachbearbeiter || '---'}<br>
+                            <strong>${positionen.length} Position(en) vorerfasst</strong>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<p style="text-align:center; padding:20px; color:red; font-style:italic;">Fehler beim Laden der Daten vom Server.</p>';
+            }
+        }
+
+        // 2. Einen Vorgang zur Detail-Bearbeitung öffnen
+        function waehleRetourenVorgang(id) {
+            aktiverVorgang = offeneRetouren.find(v => v.id === id);
+            if (!aktiverVorgang) return;
+            
+            // Subviews umschalten & Navigationsmenü ausblenden für mehr Platz
+            document.getElementById('r_subview_liste').style.display = 'none';
+            document.getElementById('r_subview_erfassung').style.display = 'block';
+            document.getElementById('main_module_switcher').style.visibility = 'hidden';
+            
+            // Kopfdaten-Zusammenfassung rendern
+            document.getElementById('r_vorgang_meta').innerHTML = `
+                <strong>Auftragsnummer:</strong> ${aktiverVorgang.Auftragsnummer || '---'}<br>
+                <strong>Vorgegeben von:</strong> ${aktiverVorgang.Sachbearbeiter || '---'}
+            `;
+            
+            const posContainer = document.getElementById('r_positionen_container');
+            posContainer.innerHTML = '';
+            
+            const positionen = aktiverVorgang.expand['retouren_positionen(relation)'] || [];
+            
+            positionen.forEach((pos, index) => {
+                const posCard = document.createElement('div');
+                posCard.className = 'card';
+                posCard.style = "border: 1px solid #dee2e6; padding: 15px; margin-bottom: 15px; box-shadow: none; border-left: 3px solid #6f42c1;";
+                posCard.dataset.posId = pos.id;
+                
+                posCard.innerHTML = `
+                    <h3 style="color:#6f42c1; font-size:15px; margin-bottom:12px; border-bottom:2px solid #f6f2ff; padding-bottom:4px;">
+                        Pos. ${index + 1}: Artikel ${pos.Artikelnummer || '---'}
+                    </h3>
+                    <div style="font-size:13px; color:#555; margin-bottom:12px; background:#f8f9fa; padding:8px; border-radius:6px;">
+                        Erwartete Menge laut Büro: <strong>${pos.Menge_Paletten_erwartet || 0} Paletten</strong>
+                        ${pos.NVE ? `<br>Vorgegebene NVE: <span style="font-family:monospace;">${pos.NVE}</span>` : ''}
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Tatsächlich eingegangene Menge (Stück!) *</label>
+                        <input type="number" class="dyn-menge" pattern="[0-9]*" inputmode="numeric" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>NVE (falls abweichend/ergänzend)</label>
+                        <input type="text" class="dyn-nve" value="${pos.NVE || ''}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Chargennummer</label>
+                        <input type="text" class="dyn-charge">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Mindesthaltbarkeitsdatum (MHD)</label>
+                        <input type="date" class="dyn-mhd">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Zustand / Bemerkung bei Abweichung</label>
+                        <textarea class="dyn-bemerkung" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top:10px;">
+                        <label>1. GS1 Etikett</label>
+                        <div class="single-photo-box">
+                            <button type="button" class="btn btn-sec" style="margin:0; flex:1;" onclick="document.getElementById('dyn_file_gs1_${pos.id}').click()">📸 Kamera öffnen</button>
+                            <span id="dyn_status_gs1_${pos.id}" class="single-photo-status">✓ Foto erfasst</span>
+                            <input type="file" id="dyn_file_gs1_${pos.id}" accept="image/*" capture="environment" style="display:none;" onchange="updateDynPhotoStatus('dyn_file_gs1_${pos.id}', 'dyn_status_gs1_${pos.id}')">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top:10px;">
+                        <label>2. M&K Etikett</label>
+                        <div class="single-photo-box">
+                            <button type="button" class="btn btn-sec" style="margin:0; flex:1;" onclick="document.getElementById('dyn_file_mk_${pos.id}').click()">📸 Kamera öffnen</button>
+                            <span id="dyn_status_mk_${pos.id}" class="single-photo-status">✓ Foto erfasst</span>
+                            <input type="file" id="dyn_file_mk_${pos.id}" accept="image/*" capture="environment" style="display:none;" onchange="updateDynPhotoStatus('dyn_file_mk_${pos.id}', 'dyn_status_mk_${pos.id}')">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top:10px;">
+                        <label>3. Zustand Palette / Ware (Mehrfachauswahl)</label>
+                        <div class="photo-uploader" onclick="document.getElementById('dyn_file_pal_${pos.id}').click()">
+                            <span style="font-size: 24px;">📸</span>
+                            <p>Palettenfoto hinzufügen</p>
+                            <input type="file" id="dyn_file_pal_${pos.id}" accept="image/*" capture="environment" multiple style="display:none;" onchange="handleDynPaletteFotos(this, '${pos.id}')">
+                        </div>
+                        <div id="dyn_preview_pal_${pos.id}" class="preview-container"></div>
+                    </div>
+                `;
+                posContainer.appendChild(posCard);
+            });
+            
+            window.scrollTo(0, 0);
+        }
+
+        function updateDynPhotoStatus(inputId, statusId) {
+            const input = document.getElementById(inputId);
+            const statusSpan = document.getElementById(statusId);
+            if(input.files && input.files.length > 0) {
+                statusSpan.style.display = 'inline-block';
+            } else {
+                statusSpan.style.display = 'none';
+            }
+        }
+
+        function handleDynPaletteFotos(input, posId) {
+            if(!dynPalFotosObjekt[posId]) dynPalFotosObjekt[posId] = [];
+            
+            if (input.files && input.files.length > 0) {
+                for(let i=0; i<input.files.length; i++) {
+                    dynPalFotosObjekt[posId].push(input.files[i]);
+                }
+                renderDynPaletteVorschau(posId);
+                input.value = "";
+            }
+        }
+
+        function renderDynPaletteVorschau(posId) {
+            const container = document.getElementById(`dyn_preview_pal_${posId}`);
+            container.innerHTML = '';
+            
+            const dateien = dynPalFotosObjekt[posId] || [];
+            dateien.forEach((foto, index) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'multi-preview-item';
+                    wrapper.innerHTML = `
+                        <img src="${e.target.result}" onclick="openLightbox('${e.target.result}')">
+                        <button type="button" class="btn-remove-photo" onclick="removeDynPaletteFoto('${posId}', ${index})">✕</button>
+                    `;
+                    container.appendChild(wrapper);
+                }
+                reader.readAsDataURL(foto);
+            });
+        }
+
+        function removeDynPaletteFoto(posId, index) {
+            if(dynPalFotosObjekt[posId]) {
+                dynPalFotosObjekt[posId].splice(index, 1);
+                renderDynPaletteVorschau(posId);
+            }
+        }
+
+        // 3. Alle Positionsdaten validieren, sammeln und abspeichern
+        async function vorgangAbschliessen() {
+            const cards = document.querySelectorAll('#r_positionen_container .card');
+            
+            // Validierungsprüfung vor dem Upload
+            for (let card of cards) {
+                const mengeInput = card.querySelector('.dyn-menge').value.trim();
+                if(!mengeInput) {
+                    alert("Bitte für alle Positionen die eingegangene Stückzahl eintragen! (0 ist erlaubt).");
+                    return;
+                }
+            }
+            
+            if(!confirm("Möchtest du die Retourenprüfung jetzt abschließen? Die Daten stehen sofort dem Büro zur Verfügung.")) return;
+            
+            const btn = document.getElementById('btn_retoure_abschliessen');
+            const loader = document.getElementById('loading');
+            
+            btn.disabled = true;
+            loader.style.display = 'flex';
+            document.getElementById('loading_text').innerText = "Übertrage Retourendaten & Bilder...";
+            
+            try {
+                // Schleife über alle generierten Artikelblöcke
+                for (let card of cards) {
+                    const posId = card.dataset.posId;
+                    
+                    const menge = parseInt(card.querySelector('.dyn-menge').value) || 0;
+                    const nve = card.querySelector('.dyn-nve').value.trim();
+                    const charge = card.querySelector('.dyn-charge').value.trim();
+                    const mhd = card.querySelector('.dyn-mhd').value;
+                    const bemerkung = card.querySelector('.dyn-bemerkung').value.trim();
+                    
+                    const fileGs1 = document.getElementById(`dyn_file_gs1_${posId}`).files[0];
+                    const fileMk = document.getElementById(`dyn_file_mk_${posId}`).files[0];
+                    const filesPal = dynPalFotosObjekt[posId] || [];
+                    
+                    // FormData-Payload erzeugen
+                    const formData = new FormData();
+                    formData.append('Menge_Stueck_eingegangen', menge);
+                    formData.append('NVE', nve);
+                    formData.append('Chargennummer', charge);
+                    if(mhd) formData.append('MHD', new Date(mhd).toISOString());
+                    formData.append('Bemerkungen', bemerkung);
+                    
+                    if(fileGs1) formData.append('Foto_GS1', fileGs1);
+                    if(fileMk) formData.append('Foto_MK', fileMk);
+                    
+                    if(filesPal.length > 0) {
+                        filesPal.forEach(foto => {
+                            formData.append('Fotos_Palette', foto);
+                        });
+                    }
+                    
+                    // Aktualisierung der Untertabelle
+                    await pb.collection('retouren_positionen').update(posId, formData);
+                }
+                
+                // Sobald alle Unterpositionen durch sind -> Kopfdatensatz auf erledigt setzen
+                await pb.collection('Retouren_kopfdaten').update(aktiverVorgang.id, {
+                    Status: 'erledigt'
+                });
+                
+                alert("Retoureneingang erfolgreich dokumentiert und abgeschlossen!");
+                zurueckZurRetourenListe();
+                
+            } catch (err) {
+                console.error(err);
+                alert("Fehler beim Übertragen der Daten: " + err.message);
+            } finally {
+                btn.disabled = false;
+                loader.style.display = 'none';
+                document.getElementById('loading_text').innerText = "Daten werden übertragen...";
+            }
+        }
+
+        function zurueckZurRetourenListe() {
+            document.getElementById('r_subview_erfassung').style.display = 'none';
+            document.getElementById('r_subview_liste').style.display = 'block';
+            document.getElementById('main_module_switcher').style.visibility = 'visible';
+            
+            // Speicher-Reset
+            aktiverVorgang = null;
+            dynPalFotosObjekt = {};
+            document.getElementById('retoureDynamischForm').reset();
+            
+            // Liste neu laden
+            loadOffeneRetouren();
+        }
+
+        // ==========================================
+        // WINDOW ONLOAD
+        // ==========================================
+    window.onload = function() {
+    initAllCanvases();
+    loadOffeneRetouren(); // Lädt die Retouren direkt beim Starten der App
+};
+        };
+    </script>
+</body>
+</html>
