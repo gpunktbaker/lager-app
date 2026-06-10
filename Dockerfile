@@ -7,10 +7,10 @@ RUN wget https://github.com/pocketbase/pocketbase/releases/download/v${QN_VERSIO
     && unzip pocketbase_${QN_VERSION}_linux_amd64.zip -d /usr/local/bin/ \
     && rm pocketbase_${QN_VERSION}_linux_amd64.zip
 
-# Deine HTML-Dateien aus GitHub in das PocketBase-Webverzeichnis kopieren
+# Deine HTML-Dateien direkt in den Standard-Webordner von PocketBase kopieren
 COPY . /pb_public
 
 EXPOSE 8080
 
 # PocketBase starten
-CMD ["/usr/local/bin/pocketbase", "serve", "--http=0.0.0.0:8080", "--dir=/pb_public/pb_data"]
+CMD ["/usr/local/bin/pocketbase", "serve", "--http=0.0.0.0:8080", "--dir=/pocketbase/pb_data", "--publicDir=/pb_public"]
