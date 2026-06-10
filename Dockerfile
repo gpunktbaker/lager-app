@@ -7,10 +7,14 @@ RUN wget https://github.com/pocketbase/pocketbase/releases/download/v${QN_VERSIO
     && unzip pocketbase_${QN_VERSION}_linux_amd64.zip -d /usr/local/bin/ \
     && rm pocketbase_${QN_VERSION}_linux_amd64.zip
 
-# Deine HTML-Dateien direkt in den Standard-Webordner von PocketBase kopieren
+# Deine HTML-Dateien kopieren
 COPY . /pb_public
+
+# Das Start-Skript in den Container kopieren und ausführbar machen
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
 
 EXPOSE 8080
 
-# PocketBase starten
-CMD ["/usr/local/bin/pocketbase", "serve", "--http=0.0.0.0:8080", "--dir=/pocketbase/pb_data", "--publicDir=/pb_public"]
+# Das Skript beim Start ausführen
+CMD ["/start.sh"]
