@@ -13,4 +13,4 @@ COPY . /pb_public
 EXPOSE 8080
 
 # PocketBase starten
-CMD ["/usr/local/bin/pocketbase", "serve", "--http=0.0.0.0:8080", "--dir=/pocketbase/pb_data"]
+CMD ["/usr/local/bin/pocketbase", "serve", "--http=0.0.0.0:8080", "--dir=/pb_public/pb_data"]
